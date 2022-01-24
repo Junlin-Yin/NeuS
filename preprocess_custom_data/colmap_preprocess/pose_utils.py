@@ -270,4 +270,41 @@ def gen_poses(basedir, match_type, factors=None):
     print( 'Done with imgs2poses' )
     
     return True
+
+def xinzhu_load_colmap_data(realdir):
+    camerasfile = os.path.join(realdir, 'sparse/0/cameras.bin')
+    camdata = read_model.read_cameras_binary(camerasfile)
+    imagesfile = os.path.join(realdir, 'sparse/0/images.bin')
+    imdata = read_model.read_images_binary(imagesfile)
     
+    # camera_mat K
+    K = read_model.intrinsic_matrix(camdata)[list(camdata.keys())[0]]
+    Rt_dict = read_model.extrinsic_matrix(imdata)
+    
+    # world_mat P = K @ [R|t]
+    K_dict = {key-1: K for key in Rt_dict.keys()}
+    P_dict = {key-1: np.matmul(K, Rt) for key, Rt in Rt_dict.items()}
+    
+    return K_dict, P_dict
+    
+    
+def xinzhu_gen_poses(basedir):
+    files_needed = ['{}.bin'.format(f) for f in ['cameras', 'images', 'points3D']]
+    if os.path.exists(os.path.join(basedir, 'sparse/0')):
+        files_had = os.listdir(os.path.join(basedir, 'sparse/0'))
+    else:
+        files_had = []
+    if not all([f in files_had for f in files_needed]):
+        print( 'Need to run COLMAP' )
+        run_colmap(basedir, 'exhaustive_matcher')
+    else:
+        print('Don\'t need to run COLMAP')
+    # print('Post-colmap')
+    
+    camera_mats, world_mats = xinzhu_load_colmap_data(basedir)
+    data = {}
+    # for k, m in camera_mats.items():
+    #     data['camera_mat_{}'.format(k)] = m
+    for k, m in world_mats.items():
+        data['world_mat_{}'.format(k)] = m
+    return data

@@ -295,6 +295,45 @@ def rotmat2qvec(R):
         qvec *= -1
     return qvec
 
+def intrinsic_matrix(cameras):
+    param_type = {
+        'SIMPLE_PINHOLE': ['f', 'cx', 'cy'],
+        'PINHOLE': ['fx', 'fy', 'cx', 'cy'],
+        'SIMPLE_RADIAL': ['f', 'cx', 'cy', 'k'],
+        'SIMPLE_RADIAL_FISHEYE': ['f', 'cx', 'cy', 'k'],
+        'RADIAL': ['f', 'cx', 'cy', 'k1', 'k2'],
+        'RADIAL_FISHEYE': ['f', 'cx', 'cy', 'k1', 'k2'],
+        'OPENCV': ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2'],
+        'OPENCV_FISHEYE': ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'k3', 'k4'],
+        'FULL_OPENCV': ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3', 'k4', 'k5', 'k6'],
+        'FOV': ['fx', 'fy', 'cx', 'cy', 'omega'],
+        'THIN_PRISM_FISHEYE': ['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3', 'k4', 'sx1', 'sy1']
+    }
+
+    intrinsic = {}
+    for camera_id, cam in cameras.items():
+        params_dict = {key: value for key, value in zip(param_type[cam.model], cam.params)}
+        if 'f' in param_type[cam.model]:
+            params_dict['fx'] = params_dict['f']
+            params_dict['fy'] = params_dict['f']
+        i = np.array([
+            [params_dict['fx'], 0, params_dict['cx'], 0],
+            [0, params_dict['fy'], params_dict['cy'], 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ])
+        intrinsic[camera_id] = i
+    return intrinsic
+
+def extrinsic_matrix(images):
+    extrinsic = {}
+    for image_id, image in images.items():
+        e = np.zeros((4, 4))
+        e[:3, :3] = qvec2rotmat(image.qvec)
+        e[:3, 3] = image.tvec
+        e[3, 3] = 1
+        extrinsic[image_id] = e
+    return extrinsic
 
 def main():
     if len(sys.argv) != 3:
